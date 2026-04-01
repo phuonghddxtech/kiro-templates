@@ -23,6 +23,7 @@ Invoke the right agent for each task:
 | 🎨 UI/UX Designer | `agents/ui-ux-designer.md` | Design system, wireframes, UX patterns, accessibility |
 | ✅ QA Engineer | `agents/qa.md` | Test plans, writing tests, bug reports, coverage |
 | ✍️ Copywriter/SEO | `agents/copywriter-seo.md` | Page copy, microcopy, meta tags, SEO optimization |
+| 🐍 Python Developer | `agents/python-developer.md` | FastAPI, SQLAlchemy, Celery, data pipelines, automation |
 
 ## Mandatory Rules (all steering docs apply)
 - `clean-code.md` — Clean Code principles
@@ -38,3 +39,4 @@ Invoke the right agent for each task:
 - `monitoring.md` — Logging, metrics, Grafana dashboards, alerting
 - `testing.md` — Test coverage standards and patterns
 - `git-workflow.md` — Git branching strategy and commit format
+- `python.md` — Python stack standards (FastAPI, SQLAlchemy, Celery)
