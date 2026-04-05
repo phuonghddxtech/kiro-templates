@@ -5,6 +5,8 @@ description: Logging, metrics (Prometheus), Grafana dashboards, distributed trac
 
 # Monitoring & Observability Skill
 
+> Standards for logging, metrics, tracing, alerting, and Grafana dashboard design.
+
 ---
 
 ## 🔭 The Three Pillars of Observability
@@ -65,6 +67,7 @@ console.log(`Order ${orderId} placed by user ${userId}`);
 logger.info({ password: user.password });           // FORBIDDEN
 logger.info({ token: req.headers.authorization });  // FORBIDDEN
 logger.info({ creditCard: payment.card });          // FORBIDDEN
+logger.info({ ssn: user.socialSecurityNumber });    // FORBIDDEN
 ```
 
 ### Logger Setup (Pino)
@@ -85,26 +88,30 @@ export const logger = pino({
 
 ---
 
-## 📊 Metrics (Prometheus)
+## 📊 Metrics (Prometheus + Grafana)
 
 ### Metric Types
 | Type | Use Case | Example |
 |------|----------|---------|
 | **Counter** | Values that only increase | `http_requests_total` |
-| **Gauge** | Values that go up and down | `active_connections` |
+| **Gauge** | Values that go up and down | `active_connections`, `memory_usage_bytes` |
 | **Histogram** | Distribution of values | `http_request_duration_seconds` |
 | **Summary** | Pre-calculated percentiles | `request_latency_percentiles` |
 
 ### Naming Convention
 ```
 # Pattern: {namespace}_{subsystem}_{name}_{unit}
-http_request_duration_seconds    # histogram
-http_requests_total              # counter
-http_requests_in_flight          # gauge
-db_query_duration_seconds        # histogram
-cache_hits_total                 # counter
-cache_misses_total               # counter
-queue_messages_pending           # gauge
+# All lowercase, underscores, snake_case
+
+http_request_duration_seconds         # histogram
+http_requests_total                   # counter
+http_requests_in_flight               # gauge
+db_query_duration_seconds             # histogram
+cache_hits_total                      # counter
+cache_misses_total                    # counter
+queue_messages_pending                # gauge
+queue_processing_duration_seconds     # histogram
+payment_transactions_total            # counter (+ status label)
 ```
 
 ### Labels — Low Cardinality Only
@@ -123,6 +130,7 @@ httpRequestCounter.labels({
 
 ### Express Metrics Middleware
 ```js
+// middleware/metrics.js
 import client from 'prom-client';
 
 const httpDuration = new client.Histogram({
@@ -151,8 +159,30 @@ app.get('/metrics', async (req, res) => {
 
 ## 📈 Grafana Dashboard Design
 
-### The RED Method (for every service dashboard)
-Every service dashboard MUST have:
+### Dashboard Naming
+```
+# Pattern: {Service} — {Category}
+User Service — Overview
+User Service — Errors & Latency
+Order Service — Business Metrics
+Infrastructure — Redis
+Infrastructure — PostgreSQL
+```
+
+### Panel Naming
+```
+# Use title case, include units in title
+Request Rate (req/s)
+P99 Latency (ms)
+Error Rate (%)
+Active DB Connections
+Cache Hit Rate (%)
+Queue Depth
+Memory Usage (MB)
+```
+
+### The RED Method (for Services)
+Every service dashboard MUST have these 3 panels:
 - **R** — **Rate**: requests per second
 - **E** — **Errors**: error rate (%)
 - **D** — **Duration**: P50, P95, P99 latency
@@ -170,6 +200,12 @@ histogram_quantile(0.99,
   rate(http_request_duration_seconds_bucket{service="order-service"}[5m])
 ) * 1000
 ```
+
+### The USE Method (for Infrastructure)
+Every infrastructure dashboard MUST have:
+- **U** — **Utilization**: % of resource being used
+- **S** — **Saturation**: queue depth, wait time
+- **E** — **Errors**: error count/rate
 
 ### Standard Dashboard Layout
 ```
@@ -191,11 +227,12 @@ Row 5: Logs panel (Loki integration)
 | `warning` | Within 30min (Slack) | High error rate, slow queries |
 | `info` | Business hours | Unusual traffic patterns |
 
-### Standard Alert Rules (AlertManager)
+### Standard Alert Rules (Prometheus AlertManager)
 ```yaml
 groups:
   - name: service-alerts
     rules:
+      # Service is down
       - alert: ServiceDown
         expr: up{job="my-service"} == 0
         for: 1m
@@ -203,6 +240,7 @@ groups:
         annotations:
           summary: "Service {{ $labels.job }} is down"
 
+      # High error rate
       - alert: HighErrorRate
         expr: |
           rate(http_requests_total{status_code=~"5.."}[5m])
@@ -212,6 +250,7 @@ groups:
         annotations:
           summary: "Error rate > 5% on {{ $labels.service }}"
 
+      # High P99 latency
       - alert: HighLatency
         expr: |
           histogram_quantile(0.99,
@@ -221,6 +260,16 @@ groups:
         severity: warning
         annotations:
           summary: "P99 latency > 1s on {{ $labels.service }}"
+
+      # Low cache hit rate
+      - alert: LowCacheHitRate
+        expr: |
+          rate(cache_hits_total[5m])
+          / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) < 0.7
+        for: 10m
+        severity: warning
+        annotations:
+          summary: "Cache hit rate < 70%"
 ```
 
 ### Alert Naming Convention

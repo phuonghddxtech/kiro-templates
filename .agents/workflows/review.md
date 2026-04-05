@@ -4,6 +4,12 @@ description: Perform a thorough code review of specified files or a pull request
 
 ## Steps
 
+### 0. Khuyến nghị Model
+Đưa ra khuyến nghị model theo `.agents/skills/mobile-developer/rules/model-selection.md`:
+- Code review thường → Claude Sonnet 4.6 (nhanh, phát hiện pattern tốt)
+- Security review / audit → Claude Opus 4.6 (Thinking)
+- Review codebase lớn (nhiều file) → Gemini 3.1 Pro (context window lớn)
+
 ### 1. Identify What to Review
 - Specify: file, PR, or feature to review
 - Review git diff for context:
